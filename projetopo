@@ -1,0 +1,118 @@
+# atividadepo
+using System;
+using System.Biblioteca;
+
+public enum StatusLivro { Disponivel, Emprestado, Reservado, EmManutencao }
+
+public class Livro 
+{
+    // Encapsulamento: Propriedades com getters e setters
+    public string Titulo { get; set; }
+    public string Autor { get; set; }
+    public string ISBN { get; private set; } // ISBN geralmente não muda após cadastro
+    public string Editora { get; set; }
+    public int AnoPublicacao { get; set; }
+    public StatusLivro Status { get; set; }
+
+    public Livro(string titulo, string autor, string isbn, string editora, int ano) 
+    {
+        Titulo = titulo;
+        Autor = autor;
+        ISBN = isbn;
+        Editora = editora;
+        AnoPublicacao = ano;
+        Status = StatusLivro.Disponivel;
+    }
+
+    public void AlterarStatus(StatusLivro novoStatus) => Status = novoStatus;
+}
+
+public class Cliente 
+{
+    public string Nome { get; set; }
+    public string CPF { get; private set; }
+    public string Endereco { get; set; }
+    public string Telefone { get; set; }
+    public string Email { get; set; }
+    
+    // Histórico completo de empréstimos (Encapsulamento da lista)
+    public List<Emprestimo> Historico { get; private set; }
+
+    public Cliente(string nome, string cpf, string email) 
+    {
+        Nome = nome;
+        CPF = cpf;
+        Email = email;
+        Historico = new List<Emprestimo>();
+    }
+
+    public void AdicionarAoHistorico(Emprestimo emprestimo) 
+    {
+        Historico.Add(emprestimo);
+    }
+}
+
+public class Emprestimo 
+{
+    public Guid Id { get; private set; }
+    public Livro LivroEmprestado { get; private set; }
+    public Cliente ClienteResponsavel { get; private set; }
+    public DateTime DataEmprestimo { get; private set; }
+    public DateTime DataVencimento { get; private set; }
+    public DateTime? DataDevolucaoEfetiva { get; private set; }
+    
+    // Constante para regra de negócio
+    private const decimal TAXA_MULTA_DIARIA = 2.50m; 
+
+    public Emprestimo(Livro livro, Cliente cliente) 
+    {
+        Id = Guid.NewGuid();
+        LivroEmprestado = livro;
+        ClienteResponsavel = cliente;
+        DataEmprestimo = DateTime.Now;
+        DataVencimento = DateTime.Now.AddDays(14); // Prazo padrão de 14 dias
+        
+        livro.AlterarStatus(StatusLivro.Emprestado);
+    }
+
+    public decimal RegistrarDevolucao() 
+    {
+        DataDevolucaoEfetiva = DateTime.Now;
+        LivroEmprestado.AlterarStatus(StatusLivro.Disponivel);
+        
+        return CalcularMulta();
+    }
+
+    public decimal CalcularMulta() 
+    {
+        DateTime dataParaCalculo = DataDevolucaoEfetiva ?? DateTime.Now;
+
+        if (dataParaCalculo > DataVencimento) 
+        {
+            int diasAtraso = (dataParaCalculo - DataVencimento).Days;
+            return diasAtraso * TAXA_MULTA_DIARIA;
+        }
+        
+        return 0;
+    }
+
+    public bool EstaAtrasado() 
+    {
+        return DataDevolucaoEfetiva == null && DateTime.Now > DataVencimento;
+    }
+}
+
+public class BibliotecaManager 
+{
+    private List<Livro> _acervo = new List<Livro>();
+    private List<Cliente> _clientes = new List<Cliente>();
+    private List<Emprestimo> _emprestimosAtivos = new List<Emprestimo>();
+
+    // Exemplo de Relatório usando LINQ (Estatísticas de movimentação)
+    public void GerarRelatorioEstatisticas() 
+    {
+        Console.WriteLine($"Total de Livros: {_acervo.Count}");
+        Console.WriteLine($"Livros Emprestados no momento: {_acervo.Count(l => l.Status == StatusLivro.Emprestado)}");
+        Console.WriteLine($"Clientes com atrasos: {_emprestimosAtivos.Count(e => e.EstaAtrasado())}");
+    }
+}
